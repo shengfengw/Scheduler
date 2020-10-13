@@ -3,67 +3,136 @@ from scipy.optimize import minimize
 from scipy.sparse.linalg import LinearOperator
 from scipy.optimize import LinearConstraint
 from scipy.optimize import Bounds
+import json
 
-# input
-# a is the msg sending window
-a = np.array([[0,1,1,1,1,1,0,0,0,0],
-                [1,1,1,1,0,0,0,0,0,0],
-                [0,1,1,1,0,0,0,0,0,0],
-                [0,0,1,1,1,1,1,0,0,0],
-                [0,0,1,1,1,1,1,1,1,1],
-                [0,1,1,1,1,1,1,1,0,0],
-                [0,1,1,1,1,1,1,1,1,1],
-                [0,0,0,1,1,1,1,1,0,0]])
+prevSchedule = np.zeros(10);
 
-# m is the number of msgs to be sent
-m = np.array([40000,50000,40000,45000,60000,80000,70000,30000])
+# class MessageGroup:
+#   def __init__(self, name, sndWindow, msgNum, capacity):
+#     self.name = name
+#     self.sndWindow = sndWindow
+#     self.msgNum = msgNum
+#     self.capacity = capacity
 
-r = len(a[:,1])
-c = len(a[1,:])
+class ScheduleBatch:
+  def __init__(self, jsonFilePath):
+    # construct input
+    # A is the msg sending window
+    self.W = constructW(jsonFilePath)
+    # M is the number of msgs to be sent
+    self.M = constructM(jsonFilePath)
+    # C is the capacity of msgs
+    self.C = constructC(jsonFilePath)
 
-# constraint is sum of msgs sent in intervals equals number of msgs to be sent
-def constructConstraint(a,m):
-    aVectorArr = []
+
+def constructW(jsonFilePath):
+    with open(jsonFilePath) as f:
+      data = json.load(f)
+    W = []
+    for item in data:
+        W.append(item["sndWindow"])
+    return np.array(W)
+
+def constructM(jsonFilePath):
+    with open(jsonFilePath) as f:
+      data = json.load(f)
+    M = []
+    for item in data:
+        M.append(item["msgNum"])
+    return np.array(M)
+
+def constructC(jsonFilePath):
+    with open(jsonFilePath) as f:
+      data = json.load(f)
+    C = []
+    for item in data:
+        C.append(item["capacity"])
+    return np.array(C)
+
+# constraint is sum of msgs sent in intervals equals number of msgs needed to be sent, dimension (r, r*c)
+def constructConstraint(W,M):
+    r = len(W[:,1])
+    c = len(W[1,:])
+    wVectorArr = []
     for i in range(r):
-        aVector = np.zeros(r*c)
+        wVector = np.zeros(r*c)
         for j in range(c):
-            aVector[i*c+j] = a[i][j]
-        aVectorArr.extend(aVector)
-    aVectorArr = np.reshape(aVectorArr, (r, r*c))
-    linear_constraint = LinearConstraint(aVectorArr,m,m)
+            wVector[i*c+j] = W[i][j]
+        wVectorArr.extend(wVector)
+    wVectorArr = np.reshape(wVectorArr, (r, r*c))
+    linear_constraint = LinearConstraint(wVectorArr,M,M)
     return linear_constraint
 
 # bound of msg sent in interval is [0,0] or [0,m[i]]
-def constructBound(a,m):
-    r = len(a[:,1])
-    c = len(a[1,:])
+def constructBound(W,M,C):
+    r = len(W[:,1])
+    c = len(W[1,:])
     minArr = np.zeros(r*c)
     maxArr = []
     for i in range(r):
         for j in range(c):
-            maxArr.append(m[i]*a[i][j])
+            maxArr.append(min(M[i],C[i])*W[i][j])
     return Bounds(minArr,maxArr)
 
-def objFn(x):
+def generateGuess(W,M,C):
+    r = len(W[:,1])
+    c = len(W[1,:])
+    x0 = []
+    windowSize = np.sum(W,axis=1)
+    for i in range(r):
+        for j in range(c):
+            # guess should be total msg num divided by window size, not exceeding total msg num
+            x0.append(min(M[i]/windowSize[i],C[i])*W[i][j])
+    return np.array(x0).flatten()
+
+def objFn(x,W):
+    r = len(W[:,1])
+    c = len(W[1,:])
     x = np.reshape(x, (r, c))
-    cSumArr = np.sum(x,axis=0)
-    res = 0
-    # sum of square of diff in column sum, better performance than max(cSumArr)
-    for i in range(c):
-        for j in range(i+1,c):
-            res += (cSumArr[i] - cSumArr[j])**2
-    return res
+    currSchedule = np.add(prevSchedule,np.sum(x,axis=0))
+    # obj is var
+    return np.var(currSchedule)
 
-linear_constraint = constructConstraint(a,m)
-bounds = constructBound(a,m)
-x0 = a
-x0 = x0.flatten()
-res = minimize(objFn, x0, method='trust-constr',
-                constraints=[linear_constraint],
-                options={'maxiter': 500, 'verbose': 1},bounds=bounds)
+def scheduleAct(jsonFilePath,prevSchedule):
+    scheduleBatch = ScheduleBatch(jsonFilePath)
+    # print out input matrix
+    W = scheduleBatch.W
+    M = scheduleBatch.M
+    C = scheduleBatch.C
+    print("W:")
+    print(W)
+    print("M:")
+    print(M)
+    print("C:")
+    print(C)
 
-res = np.reshape(res.x,(r,c))
-res = np.rint(res)
-print(res)
-cSum = np.sum(res,axis=0)
-print(cSum)
+    r = len(W[:,1])
+    c = len(W[1,:])
+
+    linear_constraint = constructConstraint(W,M)
+    bounds = constructBound(W,M,C)
+    x0 = generateGuess(W,M,C)
+    res = minimize(objFn, x0, W, method='trust-constr',
+                    constraints=[linear_constraint],
+                    options={'maxiter': 300, 'verbose': 0},bounds=bounds)
+    x = np.reshape(res.x,(r,c))
+    x = np.rint(x)
+    print("x:")
+    print(x)
+    cSum = np.sum(x,axis=0)
+    print("batchSum:")
+    print(cSum)
+    return x
+
+def updatePS(x):
+    global prevSchedule
+    prevSchedule = np.add(prevSchedule,np.sum(x,axis=0))
+    return prevSchedule
+
+for i in range(3):
+    print("==================== Batch #"+str(i)+": =======================")
+    x = scheduleAct("input"+str(i)+".json",prevSchedule)
+    updatePS(x)
+    print("currSchedule:")
+    print(prevSchedule)
+

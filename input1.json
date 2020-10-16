@@ -1,37 +1,37 @@
 [
 {
-    "name":1,
+    "name": "cpgn1",
     "sndWindow":[0,1,1,1,1,1,0,0,0,0],
     "msgNum": 40000,
     "capacity": 12000
 },
 {
-    "name":2,
+    "name": "cpgn2",
     "sndWindow":[1,1,1,1,0,0,0,0,0,0],
     "msgNum": 50000,
     "capacity": 15000
 
 },
 {
-    "name":3,
-    "sndWindow":[0,1,1,1,0,0,0,0,0,0],
+    "name": "cpgn3",
+    "sndWindow":[1,1,1,1,0,0,0,0,0,0],
     "msgNum": 40000,
     "capacity": 20000
 },
 {
-    "name":4,
+    "name": "cpgn4",
     "sndWindow":[0,0,1,1,1,1,1,0,0,0],
     "msgNum": 45000,
     "capacity": 10000
 },
 {
-    "name":5,
+    "name": "cpgn5",
     "sndWindow":[0,0,1,1,1,1,1,1,1,1],
     "msgNum": 60000,
     "capacity": 9000
 },
 {
-    "name":6,
+    "name": "cpgn6",
     "sndWindow":[0,1,1,1,1,1,1,1,0,0],
     "msgNum": 30000,
     "capacity": 6000

@@ -7,13 +7,7 @@ import json
 
 prevSchedule = np.zeros(10);
 
-# class MessageGroup:
-#   def __init__(self, name, sndWindow, msgNum, capacity):
-#     self.name = name
-#     self.sndWindow = sndWindow
-#     self.msgNum = msgNum
-#     self.capacity = capacity
-
+# construct ScheduleBatch object from input json
 class ScheduleBatch:
   def __init__(self, jsonFilePath):
     # construct input
@@ -114,25 +108,25 @@ def scheduleAct(jsonFilePath,prevSchedule):
     x0 = generateGuess(W,M,C)
     res = minimize(objFn, x0, W, method='trust-constr',
                     constraints=[linear_constraint],
-                    options={'maxiter': 300, 'verbose': 0},bounds=bounds)
+                    options={'maxiter': 300, 'verbose': 1},bounds=bounds)
     x = np.reshape(res.x,(r,c))
-    x = np.rint(x)
-    print("x:")
+    x = x.astype(int)
+    print("X:")
     print(x)
     cSum = np.sum(x,axis=0)
     print("batchSum:")
     print(cSum)
     return x
 
-def updatePS(x):
+def updatePrevSchedule(x):
     global prevSchedule
-    prevSchedule = np.add(prevSchedule,np.sum(x,axis=0))
+    prevSchedule = np.add(prevSchedule,np.sum(x,axis=0)).astype(int)
     return prevSchedule
 
 for i in range(3):
     print("==================== Batch #"+str(i)+": =======================")
     x = scheduleAct("input"+str(i)+".json",prevSchedule)
-    updatePS(x)
+    updatePrevSchedule(x)
     print("currSchedule:")
     print(prevSchedule)
 

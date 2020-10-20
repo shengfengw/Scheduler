@@ -65,7 +65,7 @@ def constructBound(W,M,C):
     maxArr = []
     for i in range(r):
         for j in range(c):
-            maxArr.append(min(M[i],C[i])*W[i][j])
+            maxArr.append(min(M[i],C[i][j])*W[i][j])
     return Bounds(minArr,maxArr)
 
 def generateGuess(W,M,C):
@@ -76,7 +76,7 @@ def generateGuess(W,M,C):
     for i in range(r):
         for j in range(c):
             # guess should be total msg num divided by window size, not exceeding total msg num
-            x0.append(min(M[i]/windowSize[i],C[i])*W[i][j])
+            x0.append(min(M[i]/windowSize[i],C[i][j])*W[i][j])
     return np.array(x0).flatten()
 
 def objFn(x,W):
